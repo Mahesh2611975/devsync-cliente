@@ -167,7 +167,9 @@ export const subscribeToChannel = (
 export const sendChatMessage = (
     channelId,
     senderId,
-    content
+    content,
+    type = "TEXT",
+    codeLanguage = null
 ) => {
 
     console.log(
