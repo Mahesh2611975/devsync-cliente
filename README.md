@@ -4,7 +4,7 @@ A bold, dark-themed authentication UI for DevSync, matching the reference design
 Built with **React 18** + **Tailwind CSS v3** + **Vite**.
 
 ## Project Structure
-
+dddaeed
 ```
 src/
 ├── App.jsx                  # Root router (state-based navigation)
