@@ -14,13 +14,28 @@ export default function ChatWindow({ channel }) {
   useEffect(() => {
     if (!channel) return;
 
+    // 1. Fetch History and FORCE Chronological Order (Oldest -> Newest)
     fetchMessageHistory(channel.id)
-      .then(setMessages)
+      .then((history) => {
+        const historyArray = Array.isArray(history) ? history : [];
+        
+        // Sort strictly by timestamp so they display one after another sequentially
+        const sortedHistory = [...historyArray].sort((a, b) => {
+          const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          return timeA - timeB; 
+        });
+        
+        setMessages(sortedHistory);
+      })
       .catch((err) => console.error("Failed to load history", err));
 
+    // 2. Connect WebSockets for Real-Time Stream updates
     connect(() => {
       setSocketReady(true);
+      
       const messageSub = subscribeToChannel(channel.id, (msg) => {
+        // Appends new messages strictly sequentially to the bottom of the array stream
         setMessages((prev) => (prev.some((m) => m.id === msg.id) ? prev : [...prev, msg]));
       });
 
@@ -49,13 +64,9 @@ export default function ChatWindow({ channel }) {
         disabled={!socketReady}
         onSend={(payload) => {
           const currentUser = JSON.parse(localStorage.getItem("user"));
-
-          console.log("CURRENT USER:", currentUser);
-          console.log("SENDING SENDER ID:", currentUser?.userId);
-
           sendChatMessage(
             channel.id,
-            currentUser?.userId,
+            currentUser?.userId || currentUser?.id,
             payload.content,
             payload.type,
             payload.codeLanguage

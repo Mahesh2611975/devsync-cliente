@@ -25,7 +25,7 @@ export default function MessageInput({ onSend, disabled }) {
         <select
           value={messageType}
           onChange={(e) => setMessageType(e.target.value)}
-          className="bg-[#111] text-xs text-white border border-white/10 rounded px-2 py-1"
+          className="bg-[#111] text-xs text-white border border-white/10 rounded px-2 py-1 outline-none"
         >
           <option value="TEXT">TEXT</option>
           <option value="CODE">CODE</option>
@@ -36,7 +36,7 @@ export default function MessageInput({ onSend, disabled }) {
           <select
             value={language}
             onChange={(e) => setLanguage(e.target.value)}
-            className="bg-[#111] text-xs text-white border border-white/10 rounded px-2 py-1"
+            className="bg-[#111] text-xs text-white border border-white/10 rounded px-2 py-1 outline-none"
           >
             <option value="javascript">JavaScript</option>
             <option value="java">Java</option>
@@ -54,11 +54,17 @@ export default function MessageInput({ onSend, disabled }) {
           onChange={(e) => setText(e.target.value)}
           placeholder={messageType === "CODE" ? "Paste code snippet..." : "Send message..."}
           className="w-full bg-transparent py-3 outline-none text-sm text-white resize-none min-h-[60px]"
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault();
+              handleSend();
+            }
+          }}
         />
         <button
           onClick={handleSend}
           disabled={disabled}
-          className="text-[#FF4500] text-xs font-bold uppercase ml-3 mb-3"
+          className="text-[#FF4500] text-xs font-bold uppercase ml-3 mb-3 hover:text-white transition"
         >
           Send
         </button>
