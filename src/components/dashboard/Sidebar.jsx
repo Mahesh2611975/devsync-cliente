@@ -1,10 +1,33 @@
 import React, { useState } from 'react';
+import CreateChannelModal from '../../pages/CreateChannelModal';
 
-export default function Sidebar({ data, nav, setNav, setIsTeamModalOpen }) {
+export default function Sidebar({ data, setData, nav, setNav, setIsTeamModalOpen }) {
   const [channelsExpanded, setChannelsExpanded] = useState(true);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   // Helper to determine if a menu item is active
   const isActive = (feature) => nav.activeFeature === feature;
+
+  const handleCreateChannel = async (name) => {
+    const token = localStorage.getItem('token');
+    try {
+      const res = await fetch(`http://localhost:8080/api/channels/create?teamId=1&name=${encodeURIComponent(name)}`, {
+        method: 'POST',
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (res.ok) {
+        const newChannel = await res.json();
+        // Real-time update to the UI
+        setData({ ...data, channels: [...(data.channels || []), newChannel] });
+      }
+    } catch (err) {
+      console.error("Failed to create channel", err);
+    }
+  };
 
   return (
     <aside className="w-64 border-r border-white/10 flex flex-col justify-between p-4 bg-[#09090b] shrink-0 select-none">
@@ -20,26 +43,25 @@ export default function Sidebar({ data, nav, setNav, setIsTeamModalOpen }) {
         </div>
 
         <div className="space-y-4">
-          
           {/* Chat Section */}
           <div>
-            <div 
-              onClick={() => {
-                setChannelsExpanded(!channelsExpanded);
-                setNav({ ...nav, activeFeature: 'chat' });
-              }}
-              className={`flex items-center justify-between px-2 py-2 text-sm rounded-md cursor-pointer transition ${
-                isActive('chat') ? 'bg-[#FF4500]/10 text-[#FF4500]' : 'text-gray-400 hover:text-white hover:bg-white/5'
-              }`}
-            >
-              <div className="flex items-center gap-2">
+            <div className="flex items-center justify-between px-2 py-2 text-sm rounded-md transition text-gray-400">
+              <div 
+                onClick={() => {
+                  setChannelsExpanded(!channelsExpanded);
+                  setNav({ ...nav, activeFeature: 'chat' });
+                }}
+                className={`flex items-center gap-2 cursor-pointer grow ${isActive('chat') ? 'text-[#FF4500]' : 'hover:text-white'}`}
+              >
                 <span>💬</span>
                 <span className="font-medium">Real-Time Chat</span>
               </div>
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" 
-                className={`transition-transform duration-150 ${channelsExpanded ? 'rotate-90' : ''}`}>
-                <path d="M9 5l7 7-7 7" />
-              </svg>
+              <button 
+                onClick={() => setIsModalOpen(true)}
+                className="hover:text-white px-2 font-bold"
+              >
+                +
+              </button>
             </div>
 
             {channelsExpanded && data?.channels && (
@@ -96,6 +118,12 @@ export default function Sidebar({ data, nav, setNav, setIsTeamModalOpen }) {
           </div>
         </button>
       </div>
+
+      <CreateChannelModal 
+        isOpen={isModalOpen} 
+        onClose={() => setIsModalOpen(false)} 
+        onCreated={handleCreateChannel} 
+      />
     </aside>
   );
 }
