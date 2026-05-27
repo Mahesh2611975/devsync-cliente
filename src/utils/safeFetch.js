@@ -19,25 +19,46 @@ export class ApiRequestError extends Error {
   }
 }
 
+export class MissingTokenError extends Error {
+  constructor(url) {
+    super(`Blocked request to ${url}: No authentication token found in localStorage.`);
+    this.name = "MissingTokenError";
+  }
+}
+
 /**
  * Drop-in fetch() replacement that:
- *  1. Auto-attaches the Bearer token from localStorage
- *  2. Reads the response as text before JSON.parse so that Spring Security
- *     HTML redirects are caught and converted to a typed ApiHtmlError instead
- *     of crashing with "Unexpected token '<'"
- *  3. Throws ApiRequestError for non-2xx responses
- *  4. Logs the first 400 chars of any unexpected HTML for easy diagnosis
+ * 1. Auto-attaches the Bearer token from localStorage
+ * 2. Prevents request execution if token is missing (avoids Spring header crashes)
+ * 3. Reads the response as text before JSON.parse so that Spring Security
+ * HTML redirects are caught and converted to a typed ApiHtmlError instead
+ * 4. Throws ApiRequestError for non-2xx responses (silences custom logs on expected 403s)
  */
 export async function safeFetch(url, options = {}) {
   const token = localStorage.getItem("token");
 
+  // ── Token Protection Layer ───────────────────────────────────────────────
+  if (!token) {
+    console.warn(`[Pre-fetch Blocked] Missing token for protected route: ${url}`);
+    throw new MissingTokenError(url);
+  }
+
+  // Construct request headers dynamically
+  const headers = {
+    Authorization: `Bearer ${token}`,
+    Accept:        "application/json",
+    ...options.headers,
+  };
+
+  // If payload is an object, auto-stringify it and set Content-Type
+  if (options.body && typeof options.body === "object" && !(options.body instanceof FormData)) {
+    options.body = JSON.stringify(options.body);
+    headers["Content-Type"] = "application/json";
+  }
+
   const response = await fetch(url, {
     ...options,
-    headers: {
-      Authorization: `Bearer ${token}`,
-      Accept:        "application/json",
-      ...options.headers,
-    },
+    headers,
   });
 
   // 204 No Content — nothing to parse
@@ -48,17 +69,19 @@ export async function safeFetch(url, options = {}) {
 
   // ── HTML intercept ────────────────────────────────────────────────────────
   if (trimmed.startsWith("<!DOCTYPE") || trimmed.startsWith("<html")) {
-    // Log a snippet so you can see the Spring error message in the console
     console.error(
-      `🚨 HTML response from ${url} (status ${response.status}):\n`,
+      `[HTML Response] Error from ${url} (status ${response.status}):\n`,
       trimmed.substring(0, 400)
     );
     throw new ApiHtmlError(url);
   }
 
-  // ── Non-2xx ───────────────────────────────────────────────────────────────
+  // ── Non-2xx Responses ─────────────────────────────────────────────────────
   if (!response.ok) {
-    console.error(`❌ API error [${response.status}] from ${url}:`, rawText);
+    // Only log standard red API errors if it's NOT a 403 role rejection
+    if (response.status !== 403) {
+      console.error(`[API Error] Status [${response.status}] from ${url}:`, rawText);
+    }
     throw new ApiRequestError(response.status, rawText, url);
   }
 
@@ -66,7 +89,7 @@ export async function safeFetch(url, options = {}) {
   try {
     return rawText ? JSON.parse(rawText) : null;
   } catch (e) {
-    console.error(`⚠️  Invalid JSON from ${url}:`, rawText);
+    console.error(`[Invalid JSON] Content from ${url}:`, rawText);
     throw new Error(`Invalid JSON from ${url}: ${e.message}`);
   }
 }

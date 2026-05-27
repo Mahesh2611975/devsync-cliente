@@ -10,10 +10,13 @@
   },
   "dependencies": {
     "@stomp/stompjs": "^7.3.0",
+    "axios": "^1.16.1",
     "lucide-react": "^1.16.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "sockjs-client": "^1.6.1"
+    "sockjs-client": "^1.6.1",
+    "stompjs": "^2.3.3",
+    "zustand": "^5.0.13"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.2.1",

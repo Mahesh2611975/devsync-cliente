@@ -29,9 +29,7 @@ export default function Dashboard() {
   const [modalOpen, setModalOpen]         = useState(false);
   const [toast, setToast]                 = useState({ message: "", type: "success" });
 
-  // ✅ FIX 6: Prevent React 18 Strict Mode double-invocation of useEffect
-  //    from firing two simultaneous /summary requests, which could cause a
-  //    race condition that leaves the component in a broken state.
+  // Prevent React 18 Strict Mode double-invocation of useEffect
   const hasFetched = useRef(false);
 
   useEffect(() => {
@@ -55,8 +53,6 @@ export default function Dashboard() {
       setDashboardData(data);
     } catch (error) {
       if (error instanceof ApiHtmlError) {
-        // ✅ FIX 7: Stale token in localStorage — clear it and redirect to login
-        //    so the user gets a fresh JWT with all required claims.
         console.error("Session expired or token is stale. Redirecting to login.");
         localStorage.removeItem("token");
         navigate("/login");
@@ -72,8 +68,6 @@ export default function Dashboard() {
   // ─── Track access (non-critical) ─────────────────────────────────────────
 
   const trackAccess = async (item) => {
-    // ✅ FIX 8: Guard against undefined/null id before sending the request.
-    //    A missing id would make Spring return a 400 HTML error page.
     if (!item?.id) {
       console.warn("trackAccess skipped — item has no id:", item);
       return;
@@ -90,13 +84,10 @@ export default function Dashboard() {
           entityId:    item.id,
           entityType:  item.type || item.entityType || "UNKNOWN",
           entityName:  resolvedName,
-          // ✅ FIX 5 (frontend side): description is now sent AND the backend
-          //    declares it — no more Spring 400 → HTML body → JSON.parse crash.
           description: item.description || `User opened ${resolvedName}`,
         }).toString(),
       });
     } catch (error) {
-      // Tracking is non-critical — log and continue
       console.warn("Activity tracking failed (non-critical):", error.message);
     }
   };
@@ -143,7 +134,7 @@ export default function Dashboard() {
         <div className="text-2xl font-bold text-[#FF4500] mb-10">DevSync</div>
 
         <div className="space-y-3">
-          <SidebarItem icon={<LayoutDashboard size={20} />} text="Home"          active />
+          <SidebarItem icon={<LayoutDashboard size={20} />} text="Home" active />
           <SidebarItem icon={<Clock3 size={20} />}          text="Recent" />
           <SidebarItem icon={<Bell size={20} />}            text="Notifications" />
         </div>
@@ -164,11 +155,10 @@ export default function Dashboard() {
           </div>
 
           <div className="space-y-3">
-            {dashboardData?.workspaces?.map((workspace) => (
+            {dashboardData?.workspaces?.map((workspace, idx) => (
               <button
-                key={workspace.id}
+                key={`workspace-${workspace.id || idx}`}
                 onClick={() => {
-                  // ✅ FIX 8 (workspace): Guard undefined id
                   if (!workspace.id) return;
                   trackAccess({
                     id:         workspace.id,
@@ -262,9 +252,9 @@ export default function Dashboard() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5">
-              {dashboardData?.userApps?.map((app) => (
+              {dashboardData?.userApps?.map((app, idx) => (
                 <button
-                  key={app.id}
+                  key={`app-${app.id || idx}`}
                   onClick={() => {
                     if (!app.id) return;
                     trackAccess({ id: app.id, type: app.type, entityName: app.name });
@@ -290,9 +280,9 @@ export default function Dashboard() {
             </div>
 
             <div className="space-y-4">
-              {dashboardData?.frequentlyAccessed?.map((item) => (
+              {dashboardData?.frequentlyAccessed?.map((item, idx) => (
                 <div
-                  key={item.id}
+                  key={`freq-${item.id || idx}`}
                   className="bg-[#111111] rounded-2xl p-5 border border-white/10 flex items-center justify-between hover:border-[#FF4500]/40 hover:shadow-md hover:shadow-[#FF4500]/5 transition"
                 >
                   <div>
