@@ -32,13 +32,13 @@ export default function WorkspaceDashboard() {
         if (!isMounted) return;
         setData(ws);
 
-        try {
-          const reqs = await safeFetch(`/api/v1/dashboard/workspace/${workspaceId}/pending-approvals`);
-          if (isMounted) setPending(reqs?.pendingRequests || reqs || []);
-        } catch (err) {
-          console.warn("Pending approvals restricted or unavailable:", err.message);
-          if (isMounted) setPending([]);
-        }
+      //  try {
+        //  const reqs = await safeFetch(`/api/v1/dashboard/workspace/${workspaceId}/pending-approvals`);
+          //if (isMounted) setPending(reqs?.pendingRequests || reqs || []);
+       // } catch (err) {
+         // console.warn("Pending approvals restricted or unavailable:", err.message);
+          //if (isMounted) setPending([]);
+        //}
       } catch (e) {
         console.error("Critical Fetch Error:", e);
       } finally {
