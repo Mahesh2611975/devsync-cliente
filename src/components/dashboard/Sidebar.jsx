@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import CreateChannelModal from '../../pages/CreateChannelModal';
 
-export default function Sidebar({ data, setData, nav, setNav, setIsTeamModalOpen }) {
+export default function Sidebar({ data, setData, nav, setNav, setIsTeamModalOpen, unreadCounts, setUnreadCounts }) {
   const [channelsExpanded, setChannelsExpanded] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -21,12 +21,19 @@ export default function Sidebar({ data, setData, nav, setNav, setIsTeamModalOpen
       
       if (res.ok) {
         const newChannel = await res.json();
-        // Real-time update to the UI
         setData({ ...data, channels: [...(data.channels || []), newChannel] });
       }
     } catch (err) {
       console.error("Failed to create channel", err);
     }
+  };
+
+  const handleSelectChannel = (ch) => {
+    // Clear unread count for this channel when clicked
+    if (setUnreadCounts) {
+      setUnreadCounts(prev => ({ ...prev, [ch.id]: 0 }));
+    }
+    setNav({ activeFeature: 'chat', selectedChannel: ch });
   };
 
   return (
@@ -71,13 +78,18 @@ export default function Sidebar({ data, setData, nav, setNav, setIsTeamModalOpen
                     key={ch.id}
                     onClick={(e) => {
                       e.stopPropagation();
-                      setNav({ activeFeature: 'chat', selectedChannel: ch });
+                      handleSelectChannel(ch);
                     }}
-                    className={`px-2 py-1.5 text-xs rounded cursor-pointer transition ${
-                      nav.selectedChannel?.id === ch.id ? 'text-[#FF4500] bg-white/5 font-semibold' : 'text-gray-500 hover:text-gray-300'
+                    className={`flex justify-between items-center px-2 py-1.5 text-xs rounded cursor-pointer transition ${
+                      nav.selectedChannel?.id === ch.id ? 'text-white bg-white/10 font-semibold' : 'text-gray-500 hover:text-gray-300'
                     }`}
                   >
-                    # {ch.name}
+                    <span># {ch.name}</span>
+                    {unreadCounts?.[ch.id] > 0 && (
+                      <span className="bg-[#FF4500] text-white text-[9px] px-1.5 py-0.5 rounded-full font-bold">
+                        {unreadCounts[ch.id]}
+                      </span>
+                    )}
                   </div>
                 ))}
               </div>
