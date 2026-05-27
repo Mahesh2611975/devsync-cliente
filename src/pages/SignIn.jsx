@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom"; // 1. Added React Router Hook
+import { useNavigate } from "react-router-dom";
 
-export default function SignIn() { // 2. Removed navigate from props parameters
-  const navigate = useNavigate(); // 3. Initialized the hook
+export default function SignIn() {
+  const navigate = useNavigate();
   
   const [form, setForm] = useState({ email: "", password: "", remember: false });
   const [errors, setErrors] = useState({});
@@ -50,21 +50,35 @@ export default function SignIn() { // 2. Removed navigate from props parameters
 
         // Store JWT token
         if (data.token) {
-          localStorage.setItem("token", data.token);
+            localStorage.setItem(
+                "token",
+                data.token
+            );
+
+            // Store authenticated user
+            localStorage.setItem(
+                "user",
+                JSON.stringify({
+                    userId: data.userId,
+                    username: data.username,
+                    email: data.email
+                })
+            );
         }
 
         // Remember user
         if (form.remember) {
-          localStorage.setItem(
-            "ds_user",
-            JSON.stringify({
-              email: form.email,
-              token: data.token || ""
-            })
-          );
+            localStorage.setItem(
+                "ds_user",
+                JSON.stringify({
+                    userId: data.userId,
+                    username: data.username,
+                    email: data.email,
+                    token: data.token || ""
+                })
+            );
         }
 
-        // 4. Updated destination to standard routing path
         navigate("/dashboard");
 
       } else {
@@ -209,7 +223,7 @@ export default function SignIn() { // 2. Removed navigate from props parameters
                     <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeDasharray="30" strokeDashoffset="10" />
                   </svg>
                   {" "}Signing In...
-                </                >
+                </>
               ) : "Sign In ↗"}
             </button>
           </form>
