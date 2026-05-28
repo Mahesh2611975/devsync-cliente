@@ -59,7 +59,7 @@ export default function DevMeetDashboard({ teamId }) {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          channelId: teamId, // ✅ FIXED: Replaced null with teamId to fulfill the Postgres NOT NULL constraint
+          channelId: teamId,
           type: 'CHANNEL' 
         })
       });

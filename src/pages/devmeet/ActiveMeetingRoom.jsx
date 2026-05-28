@@ -57,7 +57,6 @@ export default function ActiveMeetingRoom({ meeting, onLeave }) {
 
       {/* Video Grid Layout */}
       <div className="flex-1 p-6 flex items-center justify-center overflow-y-auto">
-        {/* ✅ FIXED: Cleaned up grid auto-scaling layout matrices */}
         <div className="grid gap-6 w-full h-full max-w-5xl max-h-[70vh] grid-cols-1 md:grid-cols-2 justify-center items-center">
 
           {/* 1. LOCAL USER CARD */}
@@ -69,19 +68,21 @@ export default function ActiveMeetingRoom({ meeting, onLeave }) {
               userName={`You (#${currentUserId})`}
               micEnabled={participantStates[currentUserId]?.micEnabled ?? true}
               cameraEnabled={participantStates[currentUserId]?.cameraEnabled ?? true}
+              screenEnabled={participantStates[currentUserId]?.screenSharing ?? false}
             />
           )}
 
           {/* 2. DYNAMIC REMOTE PARTICIPANT CARDS */}
-          {Object.keys(remoteStreams).map((peerId) => (
+          {Object.entries(remoteStreams).map(([peerId, stream]) => (
             <VideoTile
               key={peerId}
-              stream={remoteStreams[peerId]}
+              stream={stream}
               isLocal={false}
               userId={peerId}
               userName={`Developer Peer #${peerId}`}
               micEnabled={participantStates[peerId]?.micEnabled ?? true}
               cameraEnabled={participantStates[peerId]?.cameraEnabled ?? true}
+              screenEnabled={participantStates[peerId]?.screenSharing ?? false}
             />
           ))}
         </div>

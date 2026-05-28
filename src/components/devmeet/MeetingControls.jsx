@@ -10,29 +10,19 @@ export default function MeetingControls({
   onScreenToggle, 
   onLeave 
 }) {
-  // Sync state initializations safely
   const [mic, setMic] = useState(initialMic);
   const [camera, setCamera] = useState(initialCamera);
   const [screen, setScreen] = useState(initialScreen);
   const token = localStorage.getItem('token');
 
-  // Safely extract the raw database numeric ID if it comes in prefixed (e.g., "meet-1" -> "1")
   const numericMeetingId = typeof meetingId === 'string' 
     ? meetingId.replace('meet-', '') 
     : meetingId;
 
-  // Effect to synchronize local control states with incoming stream states
-  useEffect(() => {
-    setMic(initialMic);
-  }, [initialMic]);
-
-  useEffect(() => {
-    setCamera(initialCamera);
-  }, [initialCamera]);
-
-  useEffect(() => {
-    setScreen(initialScreen);
-  }, [initialScreen]);
+  // Sync state with props changes from the parent/hook
+  useEffect(() => { setMic(initialMic); }, [initialMic]);
+  useEffect(() => { setCamera(initialCamera); }, [initialCamera]);
+  useEffect(() => { setScreen(initialScreen); }, [initialScreen]);
 
   const handleMicClick = async () => {
     const newState = !mic;
@@ -45,7 +35,7 @@ export default function MeetingControls({
         headers: { 'Authorization': `Bearer ${token}` }
       });
     } catch (e) {
-      console.error("Failed to sync Microphone state to backend registry cluster:", e);
+      console.error("Failed to sync Microphone state:", e);
     }
   };
 
@@ -60,7 +50,7 @@ export default function MeetingControls({
         headers: { 'Authorization': `Bearer ${token}` }
       });
     } catch (e) {
-      console.error("Failed to sync Camera state to backend registry cluster:", e);
+      console.error("Failed to sync Camera state:", e);
     }
   };
 
@@ -75,12 +65,13 @@ export default function MeetingControls({
         headers: { 'Authorization': `Bearer ${token}` }
       });
     } catch (e) {
-      console.error("Failed to sync Screen Share state to backend registry cluster:", e);
+      console.error("Failed to sync Screen Share state:", e);
     }
   };
 
   return (
     <div className="flex items-center justify-center gap-4 max-w-xl mx-auto p-4 bg-[#09090b]/80 border border-white/5 rounded-2xl backdrop-blur-md shadow-xl select-none">
+      
       {/* Microphone Control */}
       <button 
         onClick={handleMicClick}
@@ -120,7 +111,6 @@ export default function MeetingControls({
         <span>{screen ? "Sharing" : "Share Screen"}</span>
       </button>
 
-      {/* Disconnect Action Call Separator Boundary */}
       <div className="h-6 w-px bg-white/10 mx-2" />
 
       {/* Disconnect Button */}

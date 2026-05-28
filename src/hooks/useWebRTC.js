@@ -88,8 +88,12 @@ export default function useWebRTC(meetingId, currentUserId) {
           }
         });
 
-        client.subscribe(`/topic/meeting/${meetingId}/mic`, (message) => {
-          console.log("🎙️ Mic update notice:", message.body);
+        client.subscribe(`/topic/meeting/${meetingId}/states`, (message) => {
+          const stateUpdate = JSON.parse(message.body);
+          setParticipantStates(prev => ({
+            ...prev,
+            [stateUpdate.userId]: stateUpdate
+          }));
         });
 
         sendSignal('JOIN');
@@ -111,7 +115,6 @@ export default function useWebRTC(meetingId, currentUserId) {
         return; 
       }
 
-      // ✅ Map backend DTO structural property wrapper name
       const nestedPayload = signal.payload;
 
       switch (signal.signalType) {
@@ -120,30 +123,22 @@ export default function useWebRTC(meetingId, currentUserId) {
           const pcJoin = initializePeerConnection(peerId);
           const offer = await pcJoin.createOffer();
           await pcJoin.setLocalDescription(offer);
-          // ✅ Wrap output inside 'payload' to match your backend properties
           sendSignal('OFFER', { targetId: Number(peerId), payload: offer });
           break;
 
         case 'OFFER':
-          if (!nestedPayload) {
-            console.warn("⚠️ Received OFFER signal but 'payload' data field is empty.");
-            return;
-          }
+          if (!nestedPayload) return;
           console.log(`📥 Processing RECEIVED OFFER from peer #${peerId}`);
           const pcOffer = initializePeerConnection(peerId);
           await pcOffer.setRemoteDescription(new RTCSessionDescription(nestedPayload));
           
           const answer = await pcOffer.createAnswer();
           await pcOffer.setLocalDescription(answer);
-          // ✅ Wrap output inside 'payload'
           sendSignal('ANSWER', { targetId: Number(peerId), payload: answer });
           break;
 
         case 'ANSWER':
-          if (!nestedPayload) {
-            console.warn("⚠️ Received ANSWER signal but 'payload' data field is empty.");
-            return;
-          }
+          if (!nestedPayload) return;
           console.log(`🏁 Processing RECEIVED ANSWER from peer #${peerId}`);
           const pcAnswer = peerConnections.current[peerId];
           if (pcAnswer) {
@@ -159,11 +154,9 @@ export default function useWebRTC(meetingId, currentUserId) {
           
           if (pcIce && pcIce.remoteDescription && pcIce.remoteDescription.type) {
             await pcIce.addIceCandidate(new RTCIceCandidate(nestedPayload));
-            console.log(`🧊 ICE Candidate applied instantly for peer #${peerId}`);
           } else {
             if (!iceQueues.current[peerId]) iceQueues.current[peerId] = [];
             iceQueues.current[peerId].push(nestedPayload);
-            console.log(`⏳ Queued early ICE candidate for peer #${peerId}`);
           }
           break;
 
@@ -176,9 +169,7 @@ export default function useWebRTC(meetingId, currentUserId) {
   };
 
   const initializePeerConnection = (peerId) => {
-    if (peerConnections.current[peerId]) {
-      return peerConnections.current[peerId];
-    }
+    if (peerConnections.current[peerId]) return peerConnections.current[peerId];
 
     console.log(`🏗️ Creating brand new RTCPeerConnection for peer [${peerId}]`);
     const pc = new RTCPeerConnection(rtcConfig);
@@ -190,22 +181,16 @@ export default function useWebRTC(meetingId, currentUserId) {
     }
 
     pc.ontrack = (event) => {
-      console.log("🔥 SUCCESS: Received remote stream track from peer!", peerId, event.streams[0]);
-      setRemoteStreams(prev => ({
-        ...prev,
-        [peerId]: event.streams[0]
-      }));
+      setRemoteStreams(prev => ({ ...prev, [peerId]: event.streams[0] }));
     };
 
     pc.onicecandidate = (event) => {
       if (event.candidate) {
-        // ✅ Wrap network candidate inside 'payload' to match your backend DTO target expectations
         sendSignal('ICE_CANDIDATE', { targetId: Number(peerId), payload: event.candidate });
       }
     };
 
     pc.onconnectionstatechange = () => {
-      console.log(`📈 Connection state change with peer #${peerId}: ${pc.connectionState}`);
       if (['disconnected', 'failed', 'closed'].includes(pc.connectionState)) {
         removePeer(peerId);
       }
@@ -219,14 +204,10 @@ export default function useWebRTC(meetingId, currentUserId) {
     const pc = peerConnections.current[peerId];
     const queue = iceQueues.current[peerId];
     if (pc && queue && queue.length > 0) {
-      console.log(`🚀 Flushing ${queue.length} queued ICE candidates for peer #${peerId}`);
       while (queue.length > 0) {
-        const candidate = queue.shift();
         try {
-          await pc.addIceCandidate(new RTCIceCandidate(candidate));
-        } catch (e) {
-          console.error("Error flushing candidate:", e);
-        }
+          await pc.addIceCandidate(new RTCIceCandidate(queue.shift()));
+        } catch (e) { console.error("Error flushing candidate:", e); }
       }
     }
   };
@@ -235,9 +216,6 @@ export default function useWebRTC(meetingId, currentUserId) {
     if (peerConnections.current[peerId]) {
       peerConnections.current[peerId].close();
       delete peerConnections.current[peerId];
-    }
-    if (iceQueues.current[peerId]) {
-      delete iceQueues.current[peerId];
     }
     setRemoteStreams(prev => {
       const copy = { ...prev };
@@ -248,14 +226,21 @@ export default function useWebRTC(meetingId, currentUserId) {
 
   const toggleMicTrack = (enabled) => {
     if (localStreamRef.current) localStreamRef.current.getAudioTracks().forEach(t => t.enabled = enabled);
+    sendSignal('STATE_UPDATE', { payload: { type: 'MIC', enabled } });
   };
 
   const toggleCameraTrack = (enabled) => {
-    if (localStreamRef.current) localStreamRef.current.getVideoTracks().forEach(t => { if (!t.label.toLowerCase().includes('screen')) t.enabled = enabled; });
+    if (localStreamRef.current) localStreamRef.current.getVideoTracks().forEach(t => { 
+      if (!t.label.toLowerCase().includes('screen')) t.enabled = enabled; 
+    });
+    sendSignal('STATE_UPDATE', { payload: { type: 'CAM', enabled } });
   };
 
   const toggleScreenTrack = (enabled) => {
-    if (localStreamRef.current) localStreamRef.current.getVideoTracks().forEach(t => { if (t.label.toLowerCase().includes('screen')) t.enabled = enabled; });
+    if (localStreamRef.current) localStreamRef.current.getVideoTracks().forEach(t => { 
+      if (t.label.toLowerCase().includes('screen')) t.enabled = enabled; 
+    });
+    sendSignal('STATE_UPDATE', { payload: { type: 'SCREEN', enabled } });
   };
 
   const leaveRoom = () => {
@@ -265,7 +250,6 @@ export default function useWebRTC(meetingId, currentUserId) {
     }
     Object.keys(peerConnections.current).forEach(id => peerConnections.current[id].close());
     peerConnections.current = {};
-    iceQueues.current = {};
     if (localStreamRef.current) {
       localStreamRef.current.getTracks().forEach(track => track.stop());
       localStreamRef.current = null;
