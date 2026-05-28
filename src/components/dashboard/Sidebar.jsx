@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import CreateChannelModal from '../../pages/CreateChannelModal';
 
 // --- INLINE SVG ICON MATRIX COMPONENT DEFINITIONS ---
@@ -49,18 +49,59 @@ export default function Sidebar({ data, setData, nav, setNav, setIsTeamModalOpen
   const [channelsExpanded, setChannelsExpanded] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   
-  const { workspaceId, teamId } = useParams();
+  const { workspaceId, teamId, channelId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
 
-  // Detect which url param string pattern is active to build robust paths
   const isTeamRoute = !!teamId;
-  const activeTeamId = teamId || workspaceId || data?.id || 1;
+  const activeId = workspaceId || teamId || data?.id || 1;
   const activeFeature = nav?.activeFeature || 'overview';
+
+  // 🔄 Fetch all channels for this workspace/team on mount or ID shift
+  useEffect(() => {
+    const fetchWorkspaceChannels = async () => {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+      
+      try {
+        // Hits your exact channel collection endpoint mapped to the current active environment scope
+        const res = await fetch(`http://localhost:8080/api/channels/workspace/${activeId}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const channelsList = await res.json();
+          if (setData) {
+            setData(prev => ({ ...prev, channels: channelsList }));
+          }
+        }
+      } catch (err) {
+        console.error("❌ Error fetching workspace channel layout matrix:", err);
+      }
+    };
+
+    fetchWorkspaceChannels();
+  }, [activeId, setData]);
+
+  // 🎯 Auto-sync URL changes right into the React functional states
+  useEffect(() => {
+    if (!data?.channels || data.channels.length === 0) return;
+
+    if (channelId) {
+      const matchedChannel = data.channels.find(c => String(c.id) === String(channelId));
+      if (matchedChannel && nav?.selectedChannel?.id !== matchedChannel.id) {
+        setNav(prev => ({
+          ...prev,
+          activeFeature: 'chat',
+          selectedChannel: matchedChannel
+        }));
+      }
+    }
+  }, [channelId, data?.channels]);
 
   const handleCreateChannel = async (name) => {
     const token = localStorage.getItem('token');
     try {
-      const res = await fetch(`http://localhost:8080/api/channels/create?teamId=${activeTeamId}&name=${encodeURIComponent(name)}`, {
+      const res = await fetch(`http://localhost:8080/api/channels/create?teamId=${activeId}&name=${encodeURIComponent(name)}`, {
         method: 'POST',
         headers: { 
           'Authorization': `Bearer ${token}`,
@@ -83,6 +124,8 @@ export default function Sidebar({ data, setData, nav, setNav, setIsTeamModalOpen
     if (setUnreadCounts) {
       setUnreadCounts(prev => ({ ...prev, [ch.id]: 0 }));
     }
+    
+    // ✅ Sets the active context straight back to real-time chat window instantly
     setNav({
       activeFeature: 'chat',
       selectedChannel: ch,
@@ -90,17 +133,14 @@ export default function Sidebar({ data, setData, nav, setNav, setIsTeamModalOpen
       selectedDeployment: null
     });
 
-    // Smart route balancing based on URL prefix context
     if (isTeamRoute) {
-      navigate(`/team/${activeTeamId}/channel/${ch.id}`);
+      navigate(`/team/${activeId}/channel/${ch.id}`);
     } else {
-      navigate(`/workspace/${activeTeamId}/channel/${ch.id}`);
+      navigate(`/workspace/${activeId}/channel/${ch.id}`);
     }
   };
 
   const handleSelectFeature = (featureId) => {
-    console.log(`🎯 Navigating explicitly to workspace feature context: ${featureId}`);
-    
     setNav({
       activeFeature: featureId,
       selectedChannel: null,
@@ -108,11 +148,10 @@ export default function Sidebar({ data, setData, nav, setNav, setIsTeamModalOpen
       selectedDeployment: null
     });
 
-    // 🚀 FIXED: Dynamically matches whether your app is on /team/ or /workspace/ tracks
     if (isTeamRoute) {
-      navigate(`/team/${activeTeamId}/feature/${featureId}`);
+      navigate(`/team/${activeId}/feature/${featureId}`);
     } else {
-      navigate(`/workspace/${activeTeamId}/feature/${featureId}`);
+      navigate(`/workspace/${activeId}/feature/${featureId}`);
     }
   };
 
@@ -125,9 +164,9 @@ export default function Sidebar({ data, setData, nav, setNav, setIsTeamModalOpen
           onClick={() => {
             setNav({ activeFeature: 'overview', selectedChannel: null, selectedBugRoom: null, selectedDeployment: null });
             if (isTeamRoute) {
-              navigate(`/team/${activeTeamId}`);
+              navigate(`/team/${activeId}`);
             } else {
-              navigate(`/workspace/${activeTeamId}`);
+              navigate(`/workspace/${activeId}`);
             }
           }}
           className="flex items-center gap-2 px-2 cursor-pointer group"
@@ -137,7 +176,7 @@ export default function Sidebar({ data, setData, nav, setNav, setIsTeamModalOpen
         </div>
 
         <div className="space-y-4">
-          {/* Real-Time Communication Hub Channel View */}
+          {/* Channels Section */}
           <div>
             <div className="flex items-center justify-between px-2 py-2 text-sm rounded-md transition text-gray-400">
               <div 
@@ -163,25 +202,28 @@ export default function Sidebar({ data, setData, nav, setNav, setIsTeamModalOpen
 
             {channelsExpanded && data?.channels && (
               <div className="mt-1 ml-4 border-l border-white/5 pl-2 space-y-0.5">
-                {data.channels.map(ch => (
-                  <div 
-                    key={ch.id}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleSelectChannel(ch);
-                    }}
-                    className={`flex justify-between items-center px-2 py-1.5 text-xs rounded cursor-pointer transition ${
-                      nav?.selectedChannel?.id === ch.id ? 'text-white bg-white/10 font-semibold' : 'text-gray-500 hover:text-gray-300'
-                    }`}
-                  >
-                    <span># {ch.name}</span>
-                    {unreadCounts?.[ch.id] > 0 && (
-                      <span className="bg-[#FF4500] text-white text-[9px] px-1.5 py-0.5 rounded-full font-bold">
-                        {unreadCounts[ch.id]}
-                      </span>
-                    )}
-                  </div>
-                ))}
+                {data.channels.map(ch => {
+                  const isChSelected = nav?.selectedChannel?.id === ch.id || String(channelId) === String(ch.id);
+                  return (
+                    <div 
+                      key={ch.id}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleSelectChannel(ch);
+                      }}
+                      className={`flex justify-between items-center px-2 py-1.5 text-xs rounded cursor-pointer transition ${
+                        isChSelected ? 'text-white bg-white/10 font-semibold' : 'text-gray-500 hover:text-gray-300'
+                      }`}
+                    >
+                      <span># {ch.name}</span>
+                      {unreadCounts?.[ch.id] > 0 && (
+                        <span className="bg-[#FF4500] text-white text-[9px] px-1.5 py-0.5 rounded-full font-bold">
+                          {unreadCounts[ch.id]}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>

@@ -12,48 +12,41 @@ export default function ChatWindow({ channel }) {
   const [socketReady, setSocketReady] = useState(false);
 
   useEffect(() => {
-    if (!channel) return;
+    if (!channel?.id) return;
 
-    // 1. Fetch History and FORCE Chronological Order (Oldest -> Newest)
-    fetchMessageHistory(channel.id)
-      .then((history) => {
-        const historyArray = Array.isArray(history) ? history : [];
-        
-        // Sort strictly by timestamp so they display one after another sequentially
-        const sortedHistory = [...historyArray].sort((a, b) => {
-          const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-          const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-          return timeA - timeB; 
-        });
-        
-        setMessages(sortedHistory);
-      })
-      .catch((err) => console.error("Failed to load history", err));
+    let messageSub, typingSub;
 
-    // 2. Connect WebSockets for Real-Time Stream updates
+    // 1. Fetch History
+    fetchMessageHistory(channel.id).then((history) => {
+      const sortedHistory = [...(Array.isArray(history) ? history : [])].sort((a, b) => 
+        new Date(a.createdAt || 0) - new Date(b.createdAt || 0)
+      );
+      setMessages(sortedHistory);
+    });
+
+    // 2. Connect and Subscribe
     connect(() => {
       setSocketReady(true);
       
-      const messageSub = subscribeToChannel(channel.id, (msg) => {
-        // Appends new messages strictly sequentially to the bottom of the array stream
+      messageSub = subscribeToChannel(channel.id, (msg) => {
         setMessages((prev) => (prev.some((m) => m.id === msg.id) ? prev : [...prev, msg]));
       });
 
-      const typingSub = window.stompClient?.subscribe(`/topic/channel/${channel.id}/typing`, () => {
+      // Typing subscription
+      typingSub = window.stompClient?.subscribe(`/topic/channel/${channel.id}/typing`, () => {
         setIsTyping(true);
         setTimeout(() => setIsTyping(false), 3000);
       });
-
-      return () => {
-        messageSub?.unsubscribe();
-        typingSub?.unsubscribe();
-      };
     });
+
+    // 3. Proper Cleanup
+    return () => {
+      messageSub?.unsubscribe?.();
+      typingSub?.unsubscribe?.();
+    };
   }, [channel]);
 
-  if (!channel) {
-    return <EmptyState icon="💬" title="No Channel Selected" message="Select a channel to begin." />;
-  }
+  if (!channel) return <EmptyState icon="💬" title="No Channel Selected" message="Select a channel to begin." />;
 
   return (
     <div className="flex flex-col h-full bg-[#050505]">
@@ -64,13 +57,7 @@ export default function ChatWindow({ channel }) {
         disabled={!socketReady}
         onSend={(payload) => {
           const currentUser = JSON.parse(localStorage.getItem("user"));
-          sendChatMessage(
-            channel.id,
-            currentUser?.userId || currentUser?.id,
-            payload.content,
-            payload.type,
-            payload.codeLanguage
-          );
+          sendChatMessage(channel.id, currentUser?.userId || currentUser?.id, payload.content, payload.type);
         }}
       />
     </div>
