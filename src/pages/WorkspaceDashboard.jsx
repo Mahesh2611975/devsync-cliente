@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { safeFetch } from '../utils/safeFetch';
 import Sidebar from '../components/dashboard/Sidebar';
 import FeatureHeader from '../components/dashboard/FeatureHeader';
@@ -10,32 +10,66 @@ import TeamManagementModal from './TeamManagementModal';
 import { subscribeToChannel } from '../services/websocketService'; 
 
 export default function WorkspaceDashboard() {
-  const { workspaceId } = useParams();
+  const { workspaceId, teamId, featureId, channelId } = useParams();
+  const navigate = useNavigate();
+
+  // Normalize parameter resolution to support /team/:teamId layout mapping safely
+  const activeWorkspaceId = teamId || workspaceId || "1";
+
   const [data, setData] = useState(null);
   const [pending, setPending] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isTeamModalOpen, setIsTeamModalOpen] = useState(false);
-  
-  // NEW: State to track unread messages globally
   const [unreadCounts, setUnreadCounts] = useState({});
   
-  // Clean, scalable state
+  // Clean, scalable layout state tracked explicitly with dynamic router parameters
   const [nav, setNav] = useState({
-    activeFeature: 'overview',
-    selectedChannel: null,
+    activeFeature: featureId || (channelId ? 'chat' : 'overview'),
+    selectedChannel: channelId ? { id: channelId } : null,
     selectedBugRoom: null,
     selectedDeployment: null
   });
 
   const currentUserId = data?.currentUserId || data?.userId || 1;
 
+  // Sync internal layout state changes directly with explicit React Router updates
+  useEffect(() => {
+    if (featureId) {
+      setNav(prev => ({ 
+        ...prev, 
+        activeFeature: featureId, 
+        selectedChannel: null,
+        selectedBugRoom: null,
+        selectedDeployment: null 
+      }));
+    } else if (channelId) {
+      setNav(prev => ({ 
+        ...prev, 
+        activeFeature: 'chat', 
+        selectedChannel: { id: channelId },
+        selectedBugRoom: null,
+        selectedDeployment: null
+      }));
+    } else {
+      setNav(prev => ({
+        ...prev,
+        activeFeature: 'overview',
+        selectedChannel: null,
+        selectedBugRoom: null,
+        selectedDeployment: null
+      }));
+    }
+  }, [featureId, channelId]);
+
   // 1. Fetch initial workspace data
   useEffect(() => {
     let isMounted = true;
     const fetchData = async () => {
+      if (!activeWorkspaceId) return;
       setLoading(true);
       try {
-        const ws = await safeFetch(`/api/v1/dashboard/workspace/${workspaceId}`);
+        // Pointing to your unified team/workspace engine endpoint
+        const ws = await safeFetch(`/api/v1/dashboard/workspace/${activeWorkspaceId}`);
         if (!isMounted) return;
         setData(ws);
       } catch (e) {
@@ -47,22 +81,22 @@ export default function WorkspaceDashboard() {
 
     fetchData();
     return () => { isMounted = false; };
-  }, [workspaceId]);
+  }, [activeWorkspaceId]);
 
-  // 2. NEW: Background listener for all channels to track unread counts
+  // 2. Background listener for all channels to track unread counts
   useEffect(() => {
     if (!data?.channels) return;
 
     const subscriptions = [];
 
-    // Loop through all channels in this workspace and listen to them
     data.channels.forEach(channel => {
+      // Defensive check: skip subscription if channel lacks a valid database ID
+      if (!channel || !channel.id) return;
+
       const sub = subscribeToChannel(channel.id, (msg) => {
-        // If a message arrives for a channel we are NOT currently looking at
         if (nav.selectedChannel?.id !== channel.id) {
           const currentUser = JSON.parse(localStorage.getItem("user"));
           
-          // Make sure we didn't send the message ourselves
           if (msg.senderId !== currentUser?.userId) {
             setUnreadCounts(prev => ({
               ...prev,
@@ -75,22 +109,24 @@ export default function WorkspaceDashboard() {
       if (sub) subscriptions.push(sub);
     });
 
-    // Cleanup subscriptions when component unmounts or active channel changes
     return () => {
       subscriptions.forEach(sub => sub?.unsubscribe());
     };
-  }, [data?.channels, nav.selectedChannel]); // Re-run when channels or active view changes
+  }, [data?.channels, nav.selectedChannel]);
 
   return (
-    <div className="flex h-screen bg-[#050505] text-white overflow-hidden font-sans">
+    // Adding a unique key to the outer grid root forces React to cleanly 
+    // unmount/remount views when switching workspaces, completely clearing key collisions like 'freq-1'
+    <div key={activeWorkspaceId} className="flex h-screen bg-[#050505] text-white overflow-hidden font-sans">
       <Sidebar 
         data={data} 
+        setData={setData}
         nav={nav} 
         setNav={setNav} 
         setIsTeamModalOpen={setIsTeamModalOpen} 
         pending={pending}
-        unreadCounts={unreadCounts}       // Passed down to display badges
-        setUnreadCounts={setUnreadCounts} // Passed down so Sidebar can reset counts on click
+        unreadCounts={unreadCounts}       
+        setUnreadCounts={setUnreadCounts} 
       />
       
       <main className="flex-1 flex flex-col bg-[#050505] overflow-y-auto">
@@ -108,7 +144,7 @@ export default function WorkspaceDashboard() {
       <TeamManagementModal 
         isOpen={isTeamModalOpen} 
         onClose={() => setIsTeamModalOpen(false)} 
-        teamId={workspaceId} 
+        teamId={activeWorkspaceId} 
         currentUserId={currentUserId}
       />
     </div>
