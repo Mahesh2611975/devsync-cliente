@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import CreateChannelModal from '../../pages/CreateChannelModal';
 
-// --- INLINE SVG ICON MATRIX COMPONENT DEFINITIONS ---
 const ChatIcon = ({ className }) => (
   <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
     <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 0 1 .865-.501 48.172 48.172 0 0 0 3.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0 0 12 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018Z" />
@@ -45,6 +44,13 @@ const SettingsIcon = ({ className }) => (
   </svg>
 );
 
+// ← NEW
+const TaskIcon = ({ className }) => (
+  <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 0 0 2.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 0 0-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75 2.25 2.25 0 0 0-.1-.664m-5.8 0A2.251 2.251 0 0 1 13.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25ZM6.75 12h.008v.008H6.75V12Zm0 3h.008v.008H6.75V15Zm0 3h.008v.008H6.75V18Z" />
+  </svg>
+);
+
 export default function Sidebar({ data, setData, nav, setNav, setIsTeamModalOpen, unreadCounts, setUnreadCounts }) {
   const [channelsExpanded, setChannelsExpanded] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -57,43 +63,31 @@ export default function Sidebar({ data, setData, nav, setNav, setIsTeamModalOpen
   const activeId = workspaceId || teamId || data?.id || 1;
   const activeFeature = nav?.activeFeature || 'overview';
 
-  // 🔄 Fetch all channels for this workspace/team on mount or ID shift
   useEffect(() => {
     const fetchWorkspaceChannels = async () => {
       const token = localStorage.getItem('token');
       if (!token) return;
-      
       try {
-        // Hits your exact channel collection endpoint mapped to the current active environment scope
         const res = await fetch(`http://localhost:8080/api/channels/workspace/${activeId}`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         if (res.ok) {
           const channelsList = await res.json();
-          if (setData) {
-            setData(prev => ({ ...prev, channels: channelsList }));
-          }
+          if (setData) setData(prev => ({ ...prev, channels: channelsList }));
         }
       } catch (err) {
-        console.error("❌ Error fetching workspace channel layout matrix:", err);
+        console.error(" Error fetching workspace channel layout matrix:", err);
       }
     };
-
     fetchWorkspaceChannels();
   }, [activeId, setData]);
 
-  // 🎯 Auto-sync URL changes right into the React functional states
   useEffect(() => {
     if (!data?.channels || data.channels.length === 0) return;
-
     if (channelId) {
       const matchedChannel = data.channels.find(c => String(c.id) === String(channelId));
       if (matchedChannel && nav?.selectedChannel?.id !== matchedChannel.id) {
-        setNav(prev => ({
-          ...prev,
-          activeFeature: 'chat',
-          selectedChannel: matchedChannel
-        }));
+        setNav(prev => ({ ...prev, activeFeature: 'chat', selectedChannel: matchedChannel }));
       }
     }
   }, [channelId, data?.channels]);
@@ -103,17 +97,11 @@ export default function Sidebar({ data, setData, nav, setNav, setIsTeamModalOpen
     try {
       const res = await fetch(`http://localhost:8080/api/channels/create?teamId=${activeId}&name=${encodeURIComponent(name)}`, {
         method: 'POST',
-        headers: { 
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
       });
-      
       if (res.ok) {
         const newChannel = await res.json();
-        if (setData) {
-          setData(prev => ({ ...prev, channels: [...(prev?.channels || []), newChannel] }));
-        }
+        if (setData) setData(prev => ({ ...prev, channels: [...(prev?.channels || []), newChannel] }));
       }
     } catch (err) {
       console.error("Failed to append workspace communication line:", err);
@@ -121,18 +109,8 @@ export default function Sidebar({ data, setData, nav, setNav, setIsTeamModalOpen
   };
 
   const handleSelectChannel = (ch) => {
-    if (setUnreadCounts) {
-      setUnreadCounts(prev => ({ ...prev, [ch.id]: 0 }));
-    }
-    
-    // ✅ Sets the active context straight back to real-time chat window instantly
-    setNav({
-      activeFeature: 'chat',
-      selectedChannel: ch,
-      selectedBugRoom: null,
-      selectedDeployment: null
-    });
-
+    if (setUnreadCounts) setUnreadCounts(prev => ({ ...prev, [ch.id]: 0 }));
+    setNav({ activeFeature: 'chat', selectedChannel: ch, selectedBugRoom: null, selectedDeployment: null });
     if (isTeamRoute) {
       navigate(`/team/${activeId}/channel/${ch.id}`);
     } else {
@@ -141,13 +119,7 @@ export default function Sidebar({ data, setData, nav, setNav, setIsTeamModalOpen
   };
 
   const handleSelectFeature = (featureId) => {
-    setNav({
-      activeFeature: featureId,
-      selectedChannel: null,
-      selectedBugRoom: null,
-      selectedDeployment: null
-    });
-
+    setNav({ activeFeature: featureId, selectedChannel: null, selectedBugRoom: null, selectedDeployment: null });
     if (isTeamRoute) {
       navigate(`/team/${activeId}/feature/${featureId}`);
     } else {
@@ -163,11 +135,7 @@ export default function Sidebar({ data, setData, nav, setNav, setIsTeamModalOpen
         <div 
           onClick={() => {
             setNav({ activeFeature: 'overview', selectedChannel: null, selectedBugRoom: null, selectedDeployment: null });
-            if (isTeamRoute) {
-              navigate(`/team/${activeId}`);
-            } else {
-              navigate(`/workspace/${activeId}`);
-            }
+            if (isTeamRoute) { navigate(`/team/${activeId}`); } else { navigate(`/workspace/${activeId}`); }
           }}
           className="flex items-center gap-2 px-2 cursor-pointer group"
         >
@@ -180,24 +148,16 @@ export default function Sidebar({ data, setData, nav, setNav, setIsTeamModalOpen
           <div>
             <div className="flex items-center justify-between px-2 py-2 text-sm rounded-md transition text-gray-400">
               <div 
-                onClick={() => {
-                  setChannelsExpanded(!channelsExpanded);
-                  setNav(prev => ({ ...prev, activeFeature: 'chat' }));
-                }}
+                onClick={() => { setChannelsExpanded(!channelsExpanded); setNav(prev => ({ ...prev, activeFeature: 'chat' })); }}
                 className={`flex items-center gap-2.5 cursor-pointer grow ${activeFeature === 'chat' ? 'text-[#FF4500]' : 'hover:text-white'}`}
               >
                 <ChatIcon className="h-4 w-4 shrink-0" />
                 <span className="font-medium">Real-Time Chat</span>
               </div>
               <button 
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setIsModalOpen(true);
-                }}
+                onClick={(e) => { e.stopPropagation(); setIsModalOpen(true); }}
                 className="hover:text-white px-2 font-bold text-base"
-              >
-                +
-              </button>
+              >+</button>
             </div>
 
             {channelsExpanded && data?.channels && (
@@ -207,10 +167,7 @@ export default function Sidebar({ data, setData, nav, setNav, setIsTeamModalOpen
                   return (
                     <div 
                       key={ch.id}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleSelectChannel(ch);
-                      }}
+                      onClick={(e) => { e.stopPropagation(); handleSelectChannel(ch); }}
                       className={`flex justify-between items-center px-2 py-1.5 text-xs rounded cursor-pointer transition ${
                         isChSelected ? 'text-white bg-white/10 font-semibold' : 'text-gray-500 hover:text-gray-300'
                       }`}
@@ -228,13 +185,14 @@ export default function Sidebar({ data, setData, nav, setNav, setIsTeamModalOpen
             )}
           </div>
 
-          {/* Core Modules Integration Matrix */}
+          {/* Core Modules — tasks added between github and bugs */}
           {[
-            { id: 'github', label: 'GitHub Integration', Icon: GitHubIcon },
-            { id: 'bugs', label: 'Bug Tracking Rooms', Icon: BugIcon },
-            { id: 'deployments', label: 'Deployment Monitoring', Icon: DeploymentIcon },
-            { id: 'code', label: 'Live Code Collaboration', Icon: CodeIcon },
-            { id: 'video', label: 'DevMeet Video', Icon: VideoIcon }
+            { id: 'github',      label: 'GitHub Integration',     Icon: GitHubIcon      },
+            { id: 'tasks',       label: 'Task Board',             Icon: TaskIcon        },
+            { id: 'bugs',        label: 'Bug Tracking Rooms',     Icon: BugIcon         },
+            { id: 'deployments', label: 'Deployment Monitoring',  Icon: DeploymentIcon  },
+            { id: 'code',        label: 'Live Code Collaboration', Icon: CodeIcon        },
+            { id: 'video',       label: 'DevMeet Video',          Icon: VideoIcon       }
           ].map((item) => {
             const ActiveIcon = item.Icon;
             const itemSelected = activeFeature === item.id;
@@ -254,7 +212,7 @@ export default function Sidebar({ data, setData, nav, setNav, setIsTeamModalOpen
         </div>
       </div>
 
-      {/* Global Configuration Operations Footer */}
+      {/* Footer */}
       <div className="pt-2 border-t border-white/5">
         <button 
           onClick={() => setIsTeamModalOpen(true)}
