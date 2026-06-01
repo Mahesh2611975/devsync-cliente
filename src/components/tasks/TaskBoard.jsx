@@ -6,24 +6,25 @@ import TaskForm from './TaskForm';
 
 const COLUMNS = ['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE', 'CANCELLED'];
 const LABELS  = {
-  TODO: 'To Do',
+  TODO:        'To Do',
   IN_PROGRESS: 'In Progress',
-  IN_REVIEW: 'In Review',
-  DONE: 'Done',
-  CANCELLED: 'Cancelled'
+  IN_REVIEW:   'In Review',
+  DONE:        'Done',
+  CANCELLED:   'Cancelled'
 };
-const COLORS  = {
-  TODO: 'text-gray-400',
+const COLORS = {
+  TODO:        'text-gray-400',
   IN_PROGRESS: 'text-blue-400',
-  IN_REVIEW: 'text-yellow-400',
-  DONE: 'text-green-400',
-  CANCELLED: 'text-red-400'
+  IN_REVIEW:   'text-yellow-400',
+  DONE:        'text-green-400',
+  CANCELLED:   'text-red-400'
 };
 
 export default function TaskBoard({ teamId, currentUserId }) {
   const {
     tasks, loading, selected, setSelected,
-    openTask, createTask, updateStatus, assign, addComment, deleteTask
+    openTask, createTask, updateStatus,
+    assign, deleteTask, refreshSelected
   } = useTask(teamId);
 
   const [showForm, setShowForm] = useState(false);
@@ -41,7 +42,9 @@ export default function TaskBoard({ teamId, currentUserId }) {
       <div className="flex items-center justify-between shrink-0">
         <div>
           <h2 className="text-white font-bold text-lg">Task Board</h2>
-          <p className="text-xs text-gray-600 mt-0.5">{tasks.length} task{tasks.length !== 1 ? 's' : ''} · Team #{teamId}</p>
+          <p className="text-xs text-gray-600 mt-0.5">
+            {tasks.length} task{tasks.length !== 1 ? 's' : ''} · Team #{teamId}
+          </p>
         </div>
         <button
           onClick={() => setShowForm(true)}
@@ -90,7 +93,7 @@ export default function TaskBoard({ teamId, currentUserId }) {
           onClose={() => setSelected(null)}
           onStatusChange={(status) => updateStatus(selected.id, status, currentUserId)}
           onAssign={(assigneeId)   => assign(selected.id, assigneeId, currentUserId)}
-          onComment={() => addComment(selected.id, currentUserId, '')} // content handled inside TaskComments
+          onComment={() => refreshSelected(selected.id)}
           onDelete={() => deleteTask(selected.id)}
         />
       )}

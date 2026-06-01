@@ -2,10 +2,10 @@ import { useState, useEffect, useCallback } from 'react';
 import { taskService } from '../services/taskService';
 
 export function useTask(teamId) {
-  const [tasks, setTasks]         = useState([]);
-  const [loading, setLoading]     = useState(false);
-  const [error, setError]         = useState(null);
-  const [selected, setSelected]   = useState(null);
+  const [tasks, setTasks]       = useState([]);
+  const [loading, setLoading]   = useState(false);
+  const [error, setError]       = useState(null);
+  const [selected, setSelected] = useState(null);
 
   const loadTasks = useCallback(async () => {
     if (!teamId) return;
@@ -57,11 +57,6 @@ export function useTask(teamId) {
     await refreshSelected(taskId);
   };
 
-  const addComment = async (taskId, authorId, content) => {
-    await taskService.addComment(taskId, { authorId, content });
-    await refreshSelected(taskId);
-  };
-
   const deleteTask = async (taskId) => {
     await taskService.delete(taskId);
     setSelected(null);
@@ -70,6 +65,7 @@ export function useTask(teamId) {
 
   return {
     tasks, loading, error, selected, setSelected,
-    loadTasks, openTask, createTask, updateStatus, assign, addComment, deleteTask
+    loadTasks, openTask, createTask, updateStatus,
+    assign, deleteTask, refreshSelected
   };
 }
