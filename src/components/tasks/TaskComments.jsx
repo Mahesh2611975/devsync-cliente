@@ -2,9 +2,9 @@ import React, { useState } from 'react';
 import { taskService } from '../../services/taskService';
 
 export default function TaskComments({ taskId, comments = [], currentUserId, onCommentAdded }) {
-  const [content, setContent]     = useState('');
+  const [content, setContent]       = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError]         = useState('');
+  const [error, setError]           = useState('');
 
   const handleSubmit = async () => {
     const trimmed = content.trim();
@@ -15,10 +15,10 @@ export default function TaskComments({ taskId, comments = [], currentUserId, onC
     try {
       await taskService.addComment(taskId, {
         authorId: currentUserId,
-        content: trimmed         
+        content:  trimmed
       });
       setContent('');
-      onCommentAdded?.();        
+      onCommentAdded?.();
     } catch (e) {
       setError('Failed to post comment.');
       console.error(e);
@@ -93,9 +93,12 @@ export default function TaskComments({ taskId, comments = [], currentUserId, onC
         <button
           onClick={handleSubmit}
           disabled={!content.trim() || submitting}
-          className="text-xs px-3 py-1.5 bg-[#FF4500]/10 text-[#FF4500] rounded-md hover:bg-[#FF4500]/20 transition disabled:opacity-40 shrink-0"
+          className="text-xs px-3 py-1.5 bg-[#FF4500]/10 text-[#FF4500] rounded-md hover:bg-[#FF4500]/20 transition disabled:opacity-40 shrink-0 flex items-center gap-1.5"
         >
-          {submitting ? '...' : 'Send'}
+          {submitting && (
+            <span className="h-2 w-2 rounded-full border border-current border-t-transparent animate-spin" />
+          )}
+          {submitting ? 'Sending...' : 'Send'}
         </button>
       </div>
 
