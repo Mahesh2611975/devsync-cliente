@@ -22,7 +22,7 @@ export default function WorkspaceDashboard() {
   const [unreadCounts, setUnreadCounts] = useState({});
   
   const [nav, setNav] = useState({
-    activeFeature: featureId || (channelId ? 'chat' : 'overview'),
+    activeFeature: featureId || (channelId ? 'chat' : 'tasks'),
     selectedChannel: null,
     selectedBugRoom: null,
     selectedDeployment: null
