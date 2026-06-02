@@ -27,7 +27,11 @@ export async function safeFetch(url, options = {}) {
     ...options.headers,
   };
 
-  if (options.body && typeof options.body === "object" && !(options.body instanceof FormData)) {
+  if (
+    options.body &&
+    typeof options.body === "object" &&
+    !(options.body instanceof FormData)
+  ) {
     options.body = JSON.stringify(options.body);
     headers["Content-Type"] = "application/json";
   }
@@ -37,19 +41,21 @@ export async function safeFetch(url, options = {}) {
   if (response.status === 204) return null;
 
   const rawText = await response.text();
-  
-  if (response.status === 403) {
-    console.warn(`[403 Forbidden] Access denied to: ${url}. Check backend role permissions.`);
-    throw new ApiRequestError(403, "Forbidden", url);
-  }
 
+  // ✅ Check HTTP errors FIRST before attempting JSON parse
   if (!response.ok) {
+    if (response.status === 403) {
+      console.warn(`[403 Forbidden] Access denied to: ${url}. Check backend role permissions.`);
+    }
     throw new ApiRequestError(response.status, rawText, url);
   }
 
+  if (!rawText) return null;
+
   try {
-    return rawText ? JSON.parse(rawText) : null;
+    return JSON.parse(rawText);
   } catch (e) {
+    // 2xx but body is HTML — Spring Boot error page, login redirect, etc.
     throw new ApiHtmlError(url);
   }
 }

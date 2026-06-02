@@ -1,114 +1,176 @@
 import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { safeFetch } from '../utils/safeFetch';
 import Sidebar from '../components/dashboard/Sidebar';
 import FeatureHeader from '../components/dashboard/FeatureHeader';
 import ModuleContainer from '../components/dashboard/ModuleContainer';
 import TeamManagementModal from './TeamManagementModal';
 
-// Ensure this path matches where your websocket service is located
-import { subscribeToChannel } from '../services/websocketService'; 
+import { subscribeToChannel, connect } from '../services/websocketService';
 
 export default function WorkspaceDashboard() {
-  const { workspaceId } = useParams();
+  const { workspaceId, teamId, featureId, channelId } = useParams();
+  const navigate = useNavigate();
+
+  // Use actual route params only
+  const activeWorkspaceId = teamId || workspaceId;
+
   const [data, setData] = useState(null);
   const [pending, setPending] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isTeamModalOpen, setIsTeamModalOpen] = useState(false);
-  
-  // NEW: State to track unread messages globally
   const [unreadCounts, setUnreadCounts] = useState({});
-  
-  // Clean, scalable state
+
   const [nav, setNav] = useState({
-    activeFeature: 'overview',
+    activeFeature: featureId || (channelId ? 'chat' : 'tasks'),
     selectedChannel: null,
     selectedBugRoom: null,
     selectedDeployment: null
   });
 
-  const currentUserId = data?.currentUserId || data?.userId || 1;
+  const currentUserId = data?.currentUserId || data?.userId;
 
-  // 1. Fetch initial workspace data
+  // Initialize websocket
+  useEffect(() => {
+    connect(() => {
+      console.log('✅ WebSocket engine is online and ready for communication.');
+    });
+  }, []);
+
+  // Sync navigation state with URL
+  useEffect(() => {
+    if (featureId) {
+      setNav(prev => ({
+        ...prev,
+        activeFeature: featureId,
+        selectedChannel: null
+      }));
+    } else if (channelId) {
+      const fullChannelObject = data?.channels?.find(
+        ch => String(ch.id) === String(channelId)
+      );
+
+      setNav(prev => ({
+        ...prev,
+        activeFeature: 'chat',
+        selectedChannel: fullChannelObject || { id: channelId }
+      }));
+    } else {
+      setNav(prev => ({
+        ...prev,
+        activeFeature: 'tasks',
+        selectedChannel: null
+      }));
+    }
+  }, [featureId, channelId, data?.channels]);
+
+  // Fetch workspace data
   useEffect(() => {
     let isMounted = true;
+
     const fetchData = async () => {
+      if (!activeWorkspaceId) {
+        setLoading(false);
+        return;
+      }
+
       setLoading(true);
+
       try {
-        const ws = await safeFetch(`/api/v1/dashboard/workspace/${workspaceId}`);
+        const ws = await safeFetch(`/api/v1/dashboard/workspace/${activeWorkspaceId}`);
         if (!isMounted) return;
         setData(ws);
-      } catch (e) {
-        console.error("Critical Fetch Error:", e);
+      } catch (error) {
+        console.error('Critical Fetch Error:', error);
       } finally {
-        if (isMounted) setLoading(false);
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     };
 
     fetchData();
-    return () => { isMounted = false; };
-  }, [workspaceId]);
 
-  // 2. NEW: Background listener for all channels to track unread counts
+    return () => {
+      isMounted = false;
+    };
+  }, [activeWorkspaceId]);
+
+  // Background listeners for channel notifications
   useEffect(() => {
-    if (!data?.channels) return;
+    if (!data?.channels?.length) return;
 
     const subscriptions = [];
+    const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
 
-    // Loop through all channels in this workspace and listen to them
     data.channels.forEach(channel => {
-      const sub = subscribeToChannel(channel.id, (msg) => {
-        // If a message arrives for a channel we are NOT currently looking at
-        if (nav.selectedChannel?.id !== channel.id) {
-          const currentUser = JSON.parse(localStorage.getItem("user"));
-          
-          // Make sure we didn't send the message ourselves
-          if (msg.senderId !== currentUser?.userId) {
-            setUnreadCounts(prev => ({
-              ...prev,
-              [channel.id]: (prev[channel.id] || 0) + 1
-            }));
-          }
+      if (!channel?.id) return;
+
+      const sub = subscribeToChannel(channel.id, msg => {
+        // Only increment if we aren't actively looking at this channel and we didn't send it
+        if (nav.selectedChannel?.id !== channel.id && msg.senderId !== currentUser?.userId) {
+          setUnreadCounts(prev => ({
+            ...prev,
+            [channel.id]: (prev[channel.id] || 0) + 1
+          }));
         }
       });
-      
-      if (sub) subscriptions.push(sub);
+
+      if (sub) {
+        subscriptions.push(sub);
+      }
     });
 
-    // Cleanup subscriptions when component unmounts or active channel changes
     return () => {
-      subscriptions.forEach(sub => sub?.unsubscribe());
+      subscriptions.forEach(sub => sub?.unsubscribe?.());
     };
-  }, [data?.channels, nav.selectedChannel]); // Re-run when channels or active view changes
+  }, [data?.channels, nav.selectedChannel]);
+
+  if (!activeWorkspaceId) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-[#050505] text-white">
+        No workspace selected.
+      </div>
+    );
+  }
 
   return (
-    <div className="flex h-screen bg-[#050505] text-white overflow-hidden font-sans">
-      <Sidebar 
-        data={data} 
-        nav={nav} 
-        setNav={setNav} 
-        setIsTeamModalOpen={setIsTeamModalOpen} 
+    <div
+      key={activeWorkspaceId}
+      className="flex h-screen bg-[#050505] text-white overflow-hidden font-sans"
+    >
+      <Sidebar
+        data={data}
+        setData={setData}
+        nav={nav}
+        setNav={setNav}
+        setIsTeamModalOpen={setIsTeamModalOpen}
         pending={pending}
-        unreadCounts={unreadCounts}       // Passed down to display badges
-        setUnreadCounts={setUnreadCounts} // Passed down so Sidebar can reset counts on click
+        unreadCounts={unreadCounts}
+        setUnreadCounts={setUnreadCounts}
       />
-      
+
       <main className="flex-1 flex flex-col bg-[#050505] overflow-y-auto">
         <FeatureHeader activeFeature={nav.activeFeature} />
-        
+
         <div className="flex-1 p-8">
           {loading ? (
-            <div className="text-gray-600 animate-pulse font-mono text-sm">Synchronizing workspace components...</div>
+            <div className="text-gray-600 animate-pulse font-mono text-sm">
+              Synchronizing workspace components...
+            </div>
           ) : (
-            <ModuleContainer nav={nav} workspaceData={data} />
+            <ModuleContainer
+              nav={nav}
+              workspaceData={data}
+            />
           )}
         </div>
       </main>
 
-      <TeamManagementModal 
-        isOpen={isTeamModalOpen} 
-        onClose={() => setIsTeamModalOpen(false)} 
-        teamId={workspaceId} 
+      <TeamManagementModal
+        isOpen={isTeamModalOpen}
+        closeModal={() => setIsTeamModalOpen(false)}
+        teamId={activeWorkspaceId}
         currentUserId={currentUserId}
       />
     </div>
