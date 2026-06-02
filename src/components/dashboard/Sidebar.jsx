@@ -59,8 +59,8 @@ export default function Sidebar({ data, setData, nav, setNav, setIsTeamModalOpen
   const location = useLocation();
 
   const isTeamRoute = !!teamId;
-  const activeId = workspaceId || teamId || data?.id || 1;
-  const activeFeature = nav?.activeFeature || 'overview';
+  const activeId = workspaceId || teamId || data?.id;
+  const activeFeature = nav?.activeFeature || 'tasks';
 
   useEffect(() => {
     const fetchWorkspaceChannels = async () => {
@@ -133,8 +133,18 @@ export default function Sidebar({ data, setData, nav, setNav, setIsTeamModalOpen
         {/* Brand Header */}
         <div 
           onClick={() => {
-            setNav({ activeFeature: 'overview', selectedChannel: null, selectedBugRoom: null, selectedDeployment: null });
-            if (isTeamRoute) { navigate(`/team/${activeId}`); } else { navigate(`/workspace/${activeId}`); }
+            setNav({
+              activeFeature: 'tasks',
+              selectedChannel: null,
+              selectedBugRoom: null,
+              selectedDeployment: null
+            });
+
+            if (isTeamRoute) {
+              navigate(`/team/${activeId}/feature/tasks`);
+            } else {
+              navigate(`/workspace/${activeId}/feature/tasks`);
+            }
           }}
           className="flex items-center gap-2 px-2 cursor-pointer group"
         >
