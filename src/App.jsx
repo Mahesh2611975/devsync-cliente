@@ -5,6 +5,7 @@ import SignUp from "./pages/SignUp";
 import SignIn from "./pages/SignIn";
 import Dashboard from "./pages/Dashboard";
 import WorkspaceDashboard from "./pages/WorkspaceDashboard"; 
+import OAuthSuccess from "./pages/OAuthSuccess"; 
 
 export default function App() {
   return (
@@ -14,6 +15,7 @@ export default function App() {
         <Route path="/" element={<LandingPage />} />
         <Route path="/signup" element={<SignUp />} />
         <Route path="/signin" element={<SignIn />} />
+        <Route path="/oauth-success" element={<OAuthSuccess />} />
 
         {/* Authenticated Summary Dashboard */}
         <Route path="/dashboard" element={<Dashboard />} />

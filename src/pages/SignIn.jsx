@@ -25,6 +25,14 @@ export default function SignIn() {
     setApiError("");
   };
 
+  // FIX: This triggers the OAuth2 Authorization flow on the Spring Boot Backend
+  const handleOAuthLogin = (provider) => {
+    setLoading(true);
+    setApiError("");
+    // Redirects browser completely to the provider's Spring initiation endpoint
+    window.location.href = `http://localhost:8080/oauth2/authorization/${provider.toLowerCase()}`;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     const errs = validate();
@@ -50,10 +58,7 @@ export default function SignIn() {
 
         // Store JWT token
         if (data.token) {
-            localStorage.setItem(
-                "token",
-                data.token
-            );
+            localStorage.setItem("token", data.token);
 
             // Store authenticated user
             localStorage.setItem(
@@ -245,6 +250,7 @@ export default function SignIn() {
                 key={s.name}
                 type="button"
                 disabled={loading}
+                onClick={() => handleOAuthLogin(s.name)} // FIX: Added onClick to capture choices
                 className="flex items-center justify-center gap-2 border border-white/10 hover:border-white/30 bg-[#111] text-white/70 hover:text-white py-3 text-sm font-medium transition-all disabled:opacity-40"
               >
                 <span className="text-xs font-bold text-[#FF4500]">[{s.icon}]</span>
